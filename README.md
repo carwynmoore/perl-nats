@@ -14,7 +14,7 @@ $client->publish('foo', 'Hello, World!');
 # Simple Async Subscriber
 $subscription = $client->subscribe('foo', sub {
     my ($message) = @_;
-    printf('Received a message: %s\n', $message->payload);
+    printf("Received a message: %s\n", $message->payload);
 });
 
 # Process pending operations
