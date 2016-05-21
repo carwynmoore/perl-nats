@@ -10,7 +10,7 @@ use Class::XSAccessor {
         'sid',
         'reply_to',
         'length',
-        'payload',
+        'data',
         'subscription',
     ],
 };

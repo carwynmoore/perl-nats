@@ -133,13 +133,13 @@ sub unsubscribe {
 
 sub publish {
     my $self = shift;
-    my ($subject, $payload, $reply_to) = @_;
+    my ($subject, $data, $reply_to) = @_;
 
-    my $length = length($payload);
+    my $length = length($data);
 
     my $pub = "PUB $subject";
     $pub .= " $reply_to" if defined $reply_to;
-    $pub .= " $length\r\n$payload";
+    $pub .= " $length\r\n$data";
 
     $self->send($pub);
 }
@@ -193,14 +193,14 @@ sub parse_msg {
         ($subject, $sid, $reply_to, $length) = @_;
     }
 
-    my $payload = $self->read($length+2);
+    my $data = $self->read($length+2);
     my $subscription = $self->subscriptions->{$sid};
     my $message = Net::NATS::Message->new(
         subject      => $subject,
         sid          => $sid,
         reply_to     => $reply_to,
         length       => $length,
-        payload      => $payload,
+        data         => $data,
         subscription => $subscription,
     );
 

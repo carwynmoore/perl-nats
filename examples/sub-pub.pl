@@ -13,7 +13,7 @@ $nc2->connect() or die $!;
 
 $nc1->subscribe('foo', sub {
     my ($message) = @_;
-    print $message->payload . "\n";    
+    print $message->data . "\n";    
 });
 
 # TODO: Sometimes the publish happens before the subscribe.  socket buffering?
