@@ -1,12 +1,13 @@
 # NATS - Perl Client
 A [Perl](http://www.perl.org) client for the [NATS messaging system](https://nats.io).
 
+[![License MIT](https://img.shields.io/npm/l/express.svg)](http://opensource.org/licenses/MIT)
+
 ## Basic Usage
 
 ```perl
-
 $client = Net::NATS::Client->new(uri => 'nats://localhost:4222');
-$client->connect() or die;
+$client->connect() or die $!;
 
 # Simple Publisher
 $client->publish('foo', 'Hello, World!');
@@ -27,6 +28,22 @@ $subscription->unsubscribe();
 $client->close();
 ```
 
+## Request
+
+```perl
+# Setup reply
+$client->subscribe("foo", sub {
+    my ($request) = @_;
+    printf("Received request: %s\n", $request->data);
+    $nc->publish($request->reply_to, "Hello, Human!");
+});
+
+# Send request
+$client->request('foo', 'Hello, World!', sub {
+    my ($reply) = @_;
+    printf("Received reply: %s\n", $reply->data);
+});
+```
 
 The MIT License (MIT)
 =====================

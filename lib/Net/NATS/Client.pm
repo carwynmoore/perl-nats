@@ -144,6 +144,15 @@ sub publish {
     $self->send($pub);
 }
 
+sub request {
+    my ($self, $subject, $data, $callback) = @_;
+    
+    my $inbox = new_inbox();
+    my $sub = $self->subscribe($inbox, $callback);
+    $self->unsubscribe($sub, 1);
+    $self->publish($subject, $data, $inbox);
+}
+
 sub _remove_subscription {
     my ($self, $subscription) = @_;
 
@@ -246,5 +255,7 @@ sub close {
     my $self = shift;
     $self->_socket->close;
 }
+
+sub new_inbox { sprintf("_INBOX.%08X%08X%06X", rand(2**32), rand(2**32), rand(2**24)); }
 
 1;
