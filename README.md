@@ -35,7 +35,7 @@ $client->close();
 $client->subscribe("foo", sub {
     my ($request) = @_;
     printf("Received request: %s\n", $request->data);
-    $nc->publish($request->reply_to, "Hello, Human!");
+    $client->publish($request->reply_to, "Hello, Human!");
 });
 
 # Send request
