@@ -45,6 +45,18 @@ $client->request('foo', 'Hello, World!', sub {
 });
 ```
 
+## TLS
+```perl
+# Set the socket arguments that will be passed to IO::Socket::SSL
+my $socket_args = {
+    SSL_cert_file => $cert_file,
+    SSL_key_file  => $key_file,
+};
+
+my $client = Net::NATS::Client->new(uri => 'nats://localhost:4222', socket_args => $socket_args);
+$client->connect() or die $!;
+```
+
 The MIT License (MIT)
 =====================
 

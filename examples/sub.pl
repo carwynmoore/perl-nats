@@ -15,7 +15,7 @@ $client->connect() or die $!;
 
 my $sub = $client->subscribe("foo", sub {
     my ($message) = @_;
-    print $message-data . "\n";
+    print $message->data . "\n";
 });
 
 my $count = 0;
