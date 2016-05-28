@@ -131,17 +131,9 @@ sub unsubscribe {
         unless defined $max_msgs;
 }
 
-sub publish {
-    my $self = shift;
-    my ($subject, $data, $reply_to) = @_;
-
-    my $length = length($data);
-
-    my $pub = "PUB $subject";
-    $pub .= " $reply_to" if defined $reply_to;
-    $pub .= " $length\r\n$data";
-
-    $self->send($pub);
+# 0:$self 1:$subject 2:$data 3:$reply_to
+sub publish {  
+    syswrite $_[0]->_socket, 'PUB '.$_[1].' '. (defined $_[3] ? ' ' . $_[3] : '') . length($_[2])."\r\n".$_[2]."\r\n";
 }
 
 sub request {
