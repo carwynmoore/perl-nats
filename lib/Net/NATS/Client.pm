@@ -1,7 +1,6 @@
 package Net::NATS::Client;
 
-our $VERSION = '0.000001';
-$VERSION = eval $VERSION if $VERSION =~ /_/;
+our $VERSION = '0.10';
 
 use Class::XSAccessor {
     constructors => [ '_new' ],

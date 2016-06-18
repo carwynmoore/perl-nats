@@ -3,6 +3,15 @@ A [Perl](http://www.perl.org) client for the [NATS messaging system](https://nat
 
 [![License MIT](https://img.shields.io/npm/l/express.svg)](http://opensource.org/licenses/MIT)
 
+## Installation
+
+To install this module, run the following commands:
+```sh
+perl Makefile.PL
+make
+make install
+```
+
 ## Basic Usage
 
 ```perl
