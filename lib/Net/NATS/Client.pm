@@ -2,6 +2,8 @@ package Net::NATS::Client;
 
 our $VERSION = '0.10';
 
+use IO::Select;
+
 use Class::XSAccessor {
     constructors => [ '_new' ],
     accessors => [
@@ -216,12 +218,19 @@ sub parse_msg {
 
 sub wait_for_op {
     my $self = shift;
+    my $timeout = shift;        # in seconds; can be fractional
+
+    if (defined $timeout) {
+        unless(IO::Select->new($self->_socket)->can_read($timeout)) {
+          return;
+        }
+    }
 
     my ($op, @args) = $self->read_line;
     return unless defined $op;
 
     if ($op eq 'MSG') {
-        my $message = parse_msg($self, @args);
+        $self->parse_msg(@args);
     } elsif ($op eq 'PING') {
         $self->handle_ping;
     } elsif ($op eq 'PONG') {

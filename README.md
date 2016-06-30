@@ -27,8 +27,13 @@ $subscription = $client->subscribe('foo', sub {
     printf("Received a message: %s\n", $message->data);
 });
 
-# Process pending operations
+# Process one message from the server. Could be a PING message.
+# Must call at least one per ping-timout (default is 120s).
 $client->wait_for_op();
+
+# Process pending operations, with a timeout (in seconds).
+# A timeout of 0 is polling.
+$client->wait_for_op(3.14);
 
 # Unsubscribe
 $subscription->unsubscribe();
