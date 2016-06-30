@@ -24,4 +24,9 @@ sub auto_unsubscribe {
     $self->client->unsubscribe($self, $max_msgs);
 }
 
+sub unsubscribe {
+    my $self = shift;
+    $self->client->unsubscribe($self);
+}
+
 1;

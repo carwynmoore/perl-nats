@@ -30,6 +30,10 @@ $subscription = $client->subscribe('foo', sub {
 # Process pending operations
 $client->wait_for_op();
 
+# Process pending operations, with a timeout (in seconds)
+# A timeout of 0 is polling.
+$client->wait_for_op(3.14);
+
 # Unsubscribe
 $subscription->unsubscribe();
 
