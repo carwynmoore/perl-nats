@@ -3,7 +3,6 @@ package Net::NATS::Client;
 our $VERSION = '0.10';
 
 use IO::Select;
-use Errno qw(EAGAIN EINTR);
 
 use Class::XSAccessor {
     constructors => [ '_new' ],
@@ -82,7 +81,7 @@ sub connect {
     }
 
     my $connect = 'CONNECT ' . to_json($connect_info, { convert_blessed => 1});
-    $self->send($connect);
+    $self->connection->send($connect);
 
     return 1;
 }
@@ -104,7 +103,7 @@ sub subscribe {
     $sub .= " $group" if defined $group;
     $sub .= " $sid";
 
-    $self->send($sub);
+    $self->connection->send($sub);
 
     my $subscription = Net::NATS::Subscription->new(
         subject => $subject,
@@ -126,7 +125,7 @@ sub unsubscribe {
     my $sub = "UNSUB $sid";
     $sub .= " $max_msgs" if defined $max_msgs;
 
-    $self->send($sub);
+    $self->connection->send($sub);
 
     $self->_remove_subscription($subscription)
         unless defined $max_msgs;
@@ -136,7 +135,7 @@ sub unsubscribe {
 # Returns 1 on success, undef on failure
 sub publish {
     my $reply_to = defined $_[3] ? $_[3].' ' : '';
-    return $_[0]->send('PUB '.$_[1].' '.$reply_to.length($_[2])."\r\n".$_[2]);
+    return $_[0]->connection->send('PUB '.$_[1].' '.$reply_to.length($_[2])."\r\n".$_[2]);
 }
 
 sub request {
@@ -190,32 +189,6 @@ sub read_line {
     }
     $line =~ s/\r\n$//;
     return split(' ', $line);
-}
-
-# return 1 on success, undef on failure
-sub send {
-    my $self = shift;
-    my $msg = "$_[0]\r\n";
-
-    my $len = length $msg;
-    my $offset = 0;
-    while ($len) {
-        my $written = syswrite $self->connection->_socket, $msg, $len, $offset;
-        if (defined $written) {
-          $len -= $written;
-          $offset += $written;
-        } else {
-          if ($! == EAGAIN || $! == EINTR) { # retry sending
-            #warn "waiting for socket ready after $!\n";
-            $self->connection->can_write(); # block until ready to write
-          }
-          else {
-            $self->connection->error = $!;
-            return;             # can't do anything with failed write. socket likely closed.
-          }
-        }
-    }
-    return 1;
 }
 
 sub handle_info {
@@ -278,7 +251,7 @@ sub wait_for_op {
 
 sub handle_ping {
     my $self = shift;
-    $self->send("PONG");
+    $self->connection->send("PONG");
 }
 
 sub next_sid {

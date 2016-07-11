@@ -16,7 +16,7 @@ use Class::XSAccessor {
 };
 
 use IO::Socket::INET;
-use Errno 'EWOULDBLOCK';
+use Errno qw(EAGAIN EINTR EWOULDBLOCK);
 
 sub new {
     my $class = shift;
@@ -170,6 +170,33 @@ sub nb_read {
   substr($self->buffer,0,$length) = '';
   $self->eobuf = length $self->buffer;
   return length($_[0]);
+}
+
+# blocking send
+# return 1 on success, undef on failure
+sub send {
+    my $self = shift;
+    my $msg = "$_[0]\r\n";
+
+    my $len = length $msg;
+    my $offset = 0;
+    while ($len) {
+        my $written = syswrite $self->_socket, $msg, $len, $offset;
+        if (defined $written) {
+          $len -= $written;
+          $offset += $written;
+        } else {
+          if ($! == EAGAIN || $! == EINTR) { # retry sending
+            #warn "waiting for socket ready after $!\n";
+            $self->can_write(); # block until ready to write
+          }
+          else {
+            $self->error = $!;
+            return;             # can't do anything with failed write. socket likely closed.
+          }
+        }
+    }
+    return 1;
 }
 
 1;
