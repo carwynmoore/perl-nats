@@ -66,6 +66,13 @@ sub can_read {
   return IO::Select->new($self->_socket)->can_read(@_);
 }
 
+# block until the handle is ready to write, with optional timeout.
+sub can_write {
+  my $self = shift;
+
+  return IO::Select->new($self->_socket)->can_write(@_);
+}
+
 
 # implement non-blocking getline() function by managing our own data buffer
 # based on sample code from "Network Programming with Perl" by L.D. Stein.
@@ -107,7 +114,6 @@ sub nb_getline {
       $idx = index($self->buffer, $/, $self->eobuf);
       # if not found, pretend this was EWOULDBLOCK
       if ($idx < 0) {
-        print "g simulating WOULDBLOCK\n";
         $self->eobuf = length $self->buffer;
         return '0E0';
       }

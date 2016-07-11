@@ -3,6 +3,7 @@ package Net::NATS::Client;
 our $VERSION = '0.10';
 
 use IO::Select;
+use Errno qw(EAGAIN EINTR);
 
 use Class::XSAccessor {
     constructors => [ '_new' ],
@@ -132,9 +133,10 @@ sub unsubscribe {
 }
 
 # 0:$self 1:$subject 2:$data 3:$reply_to
+# Returns 1 on success, undef on failure
 sub publish {
     my $reply_to = defined $_[3] ? $_[3].' ' : '';
-    syswrite $_[0]->connection->_socket, 'PUB '.$_[1].' '.$reply_to.length($_[2])."\r\n".$_[2]."\r\n";
+    return $_[0]->send('PUB '.$_[1].' '.$reply_to.length($_[2])."\r\n".$_[2]);
 }
 
 sub request {
@@ -190,10 +192,30 @@ sub read_line {
     return split(' ', $line);
 }
 
+# return 1 on success, undef on failure
 sub send {
     my $self = shift;
-    my ($data) = @_;
-    $self->connection->_socket->print($data."\r\n");
+    my $msg = "$_[0]\r\n";
+
+    my $len = length $msg;
+    my $offset = 0;
+    while ($len) {
+        my $written = syswrite $self->connection->_socket, $msg, $len, $offset;
+        if (defined $written) {
+          $len -= $written;
+          $offset += $written;
+        } else {
+          if ($! == EAGAIN || $! == EINTR) { # retry sending
+            #warn "waiting for socket ready after $!\n";
+            $self->connection->can_write(); # block until ready to write
+          }
+          else {
+            $self->connection->error = $!;
+            return;             # can't do anything with failed write. socket likely closed.
+          }
+        }
+    }
+    return 1;
 }
 
 sub handle_info {
