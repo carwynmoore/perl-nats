@@ -93,7 +93,7 @@ sub nb_getline {
     if (!defined $count) {
       return '0E0' if $! == EWOULDBLOCK; # we handle this error
 
-      $self->error($!);                  # remember the error for later
+      $self->error = $!;               # remember the error for later
       $_[0] = $self->buffer;           # return whatever we read
       return length($_[0]);
     }
@@ -140,7 +140,7 @@ sub nb_read {
     if (!defined $count) {
       return '0E0' if $! == EWOULDBLOCK; # we handle this error
 
-      $self->error($!);                  # remember the error for later
+      $self->error = $!;                 # remember the error for later
       $_[0] = $self->buffer;             # return whatever we read
       return length($_[0]);
     }
