@@ -8,7 +8,6 @@ use Class::XSAccessor {
     constructors => [ '_new' ],
     accessors => [
         'connection',
-        '_socket',
         'socket_args',
         'subscriptions',
         'uri',
@@ -54,7 +53,7 @@ sub connect {
 
     my $connection = Net::NATS::Connection->new(socket_args => $self->socket_args)
         or return;
-    $self->_socket($connection->_socket);
+    $self->connection($connection);
 
     # Get INFO line
     my ($op, @args) = $self->read_line;
@@ -78,11 +77,11 @@ sub connect {
         $connection->upgrade()
             or return;
 
-        $self->_socket($connection->_socket);
+        $self->connection($connection);
     }
 
     my $connect = 'CONNECT ' . to_json($connect_info, { convert_blessed => 1});
-    $self->send($connect);
+    $self->connection->send($connect);
 
     return 1;
 }
@@ -104,7 +103,7 @@ sub subscribe {
     $sub .= " $group" if defined $group;
     $sub .= " $sid";
 
-    $self->send($sub);
+    $self->connection->send($sub);
 
     my $subscription = Net::NATS::Subscription->new(
         subject => $subject,
@@ -126,21 +125,22 @@ sub unsubscribe {
     my $sub = "UNSUB $sid";
     $sub .= " $max_msgs" if defined $max_msgs;
 
-    $self->send($sub);
+    $self->connection->send($sub);
 
     $self->_remove_subscription($subscription)
         unless defined $max_msgs;
 }
 
 # 0:$self 1:$subject 2:$data 3:$reply_to
+# Returns 1 on success, undef on failure
 sub publish {
     my $reply_to = defined $_[3] ? $_[3].' ' : '';
-    syswrite $_[0]->_socket, 'PUB '.$_[1].' '.$reply_to.length($_[2])."\r\n".$_[2]."\r\n";
+    return $_[0]->connection->send('PUB '.$_[1].' '.$reply_to.length($_[2])."\r\n".$_[2]);
 }
 
 sub request {
     my ($self, $subject, $data, $callback) = @_;
-    
+
     my $inbox = new_inbox();
     my $sub = $self->subscribe($inbox, $callback);
     $self->unsubscribe($sub, 1);
@@ -153,28 +153,42 @@ sub _remove_subscription {
     delete $self->subscriptions->{$subscription->sid};
 }
 
+# blocking read built upon non-blocking read
 sub read {
     my ($self, $length) = @_;
 
     my $data;
-    $self->_socket->read($data, $length)
-        or return;
+    my $rv = $self->connection->nb_read($data, $length);
+    return unless $rv;          # EOF or error
+
+    if ($rv eq '0E0') {
+      while ($rv eq '0E0' && $self->connection->can_read()) { # keep trying until we get the data we need.
+        $rv = $self->connection->nb_read($data,$length);
+        return unless $rv;        # EOF or error. should report error somewhere...
+      }
+      return if $rv eq '0E0';   # got timeout from can_read
+    }
     $data =~ s/\r\n$//;
     return $data;
 }
 
+# non-blocking version of read_line. if no timeout passed, will block
 sub read_line {
-    my ($self) = @_;
-    my $line = $self->_socket->getline
-        or return;
+    my ($self,$timeout) = @_;
+    my $line;
+
+    my $rv = $self->connection->nb_getline($line);
+    return unless $rv;          # EOF or error
+
+    if ($rv eq '0E0') {         # we do not have a full line
+      while ($rv eq '0E0' && $self->connection->can_read($timeout)) {
+        $rv = $self->connection->nb_getline($line);
+        return unless $rv; # EOF or error. should report error somewhere...
+      }
+      return if $rv eq '0E0';   # got timeout from can_read
+    }
     $line =~ s/\r\n$//;
     return split(' ', $line);
-}
-
-sub send {
-    my $self = shift;
-    my ($data) = @_;
-    $self->_socket->print($data."\r\n");
 }
 
 sub handle_info {
@@ -209,7 +223,7 @@ sub parse_msg {
     $subscription->message_count++;
     $self->message_count++;
 
-    if ($subscription->defined_max && $subscription->message_count >= $subscription->max_msgs) { 
+    if ($subscription->defined_max && $subscription->message_count >= $subscription->max_msgs) {
         $self->_remove_subscription($subscription);
     }
 
@@ -220,13 +234,7 @@ sub wait_for_op {
     my $self = shift;
     my $timeout = shift;        # in seconds; can be fractional
 
-    if (defined $timeout) {
-        unless(IO::Select->new($self->_socket)->can_read($timeout)) {
-          return;
-        }
-    }
-
-    my ($op, @args) = $self->read_line;
+    my ($op, @args) = $self->read_line($timeout);
     return unless defined $op;
 
     if ($op eq 'MSG') {
@@ -243,7 +251,7 @@ sub wait_for_op {
 
 sub handle_ping {
     my $self = shift;
-    $self->send("PONG");
+    $self->connection->send("PONG");
 }
 
 sub next_sid {
@@ -253,7 +261,7 @@ sub next_sid {
 
 sub close {
     my $self = shift;
-    $self->_socket->close;
+    $self->connection->_socket->close;
 }
 
 sub new_inbox { sprintf("_INBOX.%08X%08X%06X", rand(2**32), rand(2**32), rand(2**24)); }
