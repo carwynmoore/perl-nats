@@ -1,6 +1,6 @@
 package Net::NATS::Client;
 
-our $VERSION = '0.10_00';
+our $VERSION = '0.10_01';
 
 use IO::Select;
 
@@ -267,3 +267,88 @@ sub close {
 sub new_inbox { sprintf("_INBOX.%08X%08X%06X", rand(2**32), rand(2**32), rand(2**24)); }
 
 1;
+
+__END__
+
+=head1 NAME
+
+Net::NATS::Client - A Perl client for the NATS messaging system.
+
+=head1 SYNOPSIS
+
+  #
+  # Basic Usage
+  #
+
+  $client = Net::NATS::Client->new(uri => 'nats://localhost:4222');
+  $client->connect() or die $!;
+
+  # Simple Publisher
+  $client->publish('foo', 'Hello, World!');
+
+  # Simple Async Subscriber
+  $subscription = $client->subscribe('foo', sub {
+      my ($message) = @_;
+      printf("Received a message: %s\n", $message->data);
+  });
+
+  # Process one message from the server. Could be a PING message.
+  # Must call at least one per ping-timout (default is 120s).
+  $client->wait_for_op();
+
+  # Process pending operations, with a timeout (in seconds).
+  # A timeout of 0 is polling.
+  $client->wait_for_op(3.14);
+
+  # Unsubscribe
+  $subscription->unsubscribe();
+
+  # Close connection
+  $client->close();
+
+  #
+  # Request/Reply
+  #
+
+  # Setup reply
+  $client->subscribe("foo", sub {
+      my ($request) = @_;
+      printf("Received request: %s\n", $request->data);
+      $client->publish($request->reply_to, "Hello, Human!");
+  });
+
+  # Send request
+  $client->request('foo', 'Hello, World!', sub {
+      my ($reply) = @_;
+      printf("Received reply: %s\n", $reply->data);
+  });
+
+
+  #
+  # TLS
+  #
+
+  # Set the socket arguments that will be passed to IO::Socket::SSL
+  my $socket_args = {
+    SSL_cert_file => $cert_file,
+    SSL_key_file  => $key_file,
+  };
+
+  my $client = Net::NATS::Client->new(uri => 'nats://localhost:4222', socket_args => $socket_args);
+  $client->connect() or die $!;
+
+=head1 REPOSITORY
+
+L<https://github.com/carwynmoore/perl-nats>
+
+=head1 AUTHOR
+
+Carwyn Moore
+
+Vick Khera, <vivek at khera.org>
+
+=head1 COPYRIGHT AND LICENSE
+
+MIT License.  See F<LICENCE> for the complete licensing terms.
+
+Copyright (C) 2016 Carwyn Moore
